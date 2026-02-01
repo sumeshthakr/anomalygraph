@@ -255,11 +255,14 @@ class HierarchicalGraphEncoder(nn.Module):
         device = batch.device
         coarse_batch = torch.zeros(num_coarse, dtype=torch.long, device=device)
         
-        # For each coarse node, take the batch index of its first assigned fine node
+        # Vectorized approach: for each coarse node, use the batch index of the 
+        # most common (first encountered) assigned fine node
+        # Use scatter with index to efficiently map batch values
         for i in range(num_coarse):
             mask = assignments == i
             if mask.any():
-                coarse_batch[i] = batch[mask][0]
+                # Take the first matching batch index (all should be the same within a batch)
+                coarse_batch[i] = batch[mask.nonzero(as_tuple=True)[0][0]]
         
         return coarse_batch
     

@@ -217,7 +217,9 @@ class MemoryBank(nn.Module):
     
     def load(self, path: str):
         """Load memory bank from file."""
-        data = torch.load(path, weights_only=False)
+        # Note: weights_only=True is safer but requires the data to be simple tensors
+        # Since we only store tensors here, we use weights_only=True for security
+        data = torch.load(path, weights_only=True)
         self.bank = data['bank']
         self.mean = data['mean']
         self.std = data['std']

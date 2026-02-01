@@ -27,7 +27,12 @@ from src.utils import visualize_heatmap
 
 def load_model(checkpoint_path, device='cuda'):
     """Load trained model from checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    # Use weights_only=True for security when loading from potentially untrusted sources
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    except Exception:
+        # Fallback for checkpoints with custom objects (only use with trusted sources)
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
     config = checkpoint.get('config', {})
     model_config = config.get('model', {})

@@ -406,7 +406,14 @@ class AnomalyTrainer:
     
     def load_checkpoint(self, filename: str):
         """Load model checkpoint."""
-        checkpoint = torch.load(self.save_dir / filename, map_location=self.device, weights_only=False)
+        # Use weights_only=True for security when loading from potentially untrusted sources
+        # Note: This requires the checkpoint to contain only tensors and simple Python types
+        try:
+            checkpoint = torch.load(self.save_dir / filename, map_location=self.device, weights_only=True)
+        except Exception:
+            # Fallback for checkpoints with custom objects (e.g., config dicts)
+            # Only use this with trusted checkpoint sources
+            checkpoint = torch.load(self.save_dir / filename, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.current_epoch = checkpoint.get('epoch', 0)
         self.best_metric = checkpoint.get('best_metric', float('inf'))

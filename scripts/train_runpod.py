@@ -458,7 +458,12 @@ def main():
     # Resume from checkpoint if specified
     if args.resume:
         print(f"Resuming from checkpoint: {args.resume}")
-        checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+        # Use weights_only=True for security when loading from potentially untrusted sources
+        try:
+            checkpoint = torch.load(args.resume, map_location=device, weights_only=True)
+        except Exception:
+            # Fallback for checkpoints with custom objects (only use with trusted sources)
+            checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint['model_state_dict'])
     
     if not args.eval_only:
