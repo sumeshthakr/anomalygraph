@@ -436,10 +436,10 @@ def custom_collate_fn(batch: List[Dict]) -> Dict:
             [item['fine_graph'] for item in batch]
         )
     
+    coarse_graphs = None
     if 'coarse_graph' in batch[0] and batch[0]['coarse_graph'] is not None:
-        collated['coarse_graph'] = Batch.from_data_list(
-            [item['coarse_graph'] for item in batch]
-        )
+        coarse_graphs = [item['coarse_graph'] for item in batch]
+        collated['coarse_graph'] = Batch.from_data_list(coarse_graphs)
     
     # Stack tensors
     for key in ['label', 'points', 'features', 'normals', 'curvature', 'roughness']:
@@ -451,7 +451,24 @@ def custom_collate_fn(batch: List[Dict]) -> Dict:
     
     # Handle assignments (can't easily batch these)
     if 'assignments' in batch[0]:
-        collated['assignments'] = [item['assignments'] for item in batch]
+        assignments_list = []
+        for item in batch:
+            assign = item['assignments']
+            if not isinstance(assign, torch.Tensor):
+                assign = torch.as_tensor(assign)
+            assignments_list.append(assign)
+        if coarse_graphs is not None:
+            offsets = []
+            total = 0
+            for g in coarse_graphs:
+                offsets.append(total)
+                total += g.num_nodes
+            adjusted = [
+                assign + offset for assign, offset in zip(assignments_list, offsets)
+            ]
+            collated['assignments'] = torch.cat(adjusted, dim=0)
+        else:
+            collated['assignments'] = torch.cat(assignments_list, dim=0)
     
     # Keep metadata
     for key in ['category', 'anomaly_type', 'file_path']:
