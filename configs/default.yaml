@@ -1,0 +1,135 @@
+# Configuration for Graph-Based 3D Point-Cloud Anomaly Detection
+# Target: Robust AUROC > 0.70 on unseen categories
+
+# Data Configuration
+data:
+  # Dataset paths
+  data_root: "./data/Anomaly-ShapeNet"
+  
+  # Preprocessing
+  target_points: 100000          # Target number of points after downsampling
+  voxel_size: null               # Auto-compute if null
+  outlier_nb_neighbors: 20       # Neighbors for outlier detection
+  outlier_std_ratio: 2.0         # Std ratio for outlier removal
+  normal_knn: 30                 # Neighbors for normal estimation
+  
+  # Data augmentation
+  use_augmentation: true
+  jitter_std: 0.01
+  dropout_ratio: 0.1
+  scale_range: [0.8, 1.2]
+  rotation_range: 0.785          # ~45 degrees
+  
+  # File format
+  point_format: "npy"            # npy, npz, ply, pcd, txt, xyz
+
+# Graph Construction
+graph:
+  # Fine graph (micro defects)
+  fine_k: 24                     # kNN neighbors for fine graph
+  
+  # Coarse graph (macro defects)
+  coarse_k: 16                   # kNN neighbors for coarse graph
+  num_superpoints: 2048          # Number of superpoints
+  
+  # Edge features
+  include_edge_features: true    # Include relative pos, dist, normal diff
+
+# Model Architecture
+model:
+  # Encoder type: 'edgeconv' or 'attention'
+  encoder_type: "edgeconv"
+  
+  # Feature dimensions
+  in_channels: 8                 # [xyz, normals, curvature, roughness]
+  hidden_channels: 128           # Fine-level hidden dimension
+  coarse_hidden: 256             # Coarse-level hidden dimension
+  out_channels: 256              # Output embedding dimension (D)
+  
+  # Network depth
+  fine_layers: 3                 # Number of fine-level layers
+  coarse_layers: 2               # Number of coarse-level layers
+  
+  # Attention heads (if using attention)
+  heads: 4
+  
+  # Regularization
+  dropout: 0.1
+  batch_norm: true
+
+# Anomaly Detection
+anomaly:
+  # Memory bank
+  memory_bank_size: 10000        # Number of prototypes
+  
+  # Score fusion weights
+  local_weight: 0.7              # Weight for local (per-point) score
+  global_weight: 0.3             # Weight for global score
+  
+  # Object-level scoring
+  top_k_percent: 0.05            # Use top 5% for object score
+  
+  # Temperature for score normalization
+  temperature: 0.1
+
+# Training Configuration
+training:
+  # General
+  batch_size: 4
+  num_workers: 4
+  device: "cuda"
+  seed: 42
+  
+  # Pretraining (Stage 1)
+  pretrain:
+    epochs: 100
+    learning_rate: 0.001
+    weight_decay: 0.00001
+    warmup_epochs: 10
+    
+    # Masked Patch Modeling
+    mask_ratio: 0.4
+    patch_size: 32
+    
+    # Contrastive Learning
+    contrastive_weight: 0.5
+    projection_dim: 128
+    temperature: 0.07
+    
+    # Checkpoints
+    save_interval: 20
+    early_stopping_patience: 20
+  
+  # Calibration (Stage 2)
+  calibration:
+    n_prototypes: 10000
+    threshold_percentile: 99.5
+    min_normal_samples: 10
+
+# Evaluation
+evaluation:
+  # Metrics to compute
+  metrics:
+    - object_auroc
+    - point_auroc
+    - pro
+    - fpr_95
+  
+  # Cross-validation
+  n_folds: 5
+  test_categories: []            # Categories for testing (leave empty for CV)
+
+# Paths
+paths:
+  checkpoint_dir: "./checkpoints"
+  log_dir: "./logs"
+  visualization_dir: "./visualizations"
+  results_dir: "./results"
+
+# Logging
+logging:
+  log_interval: 10
+  verbose: true
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: "anomaly-shapenet"
